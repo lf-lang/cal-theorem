@@ -1,0 +1,81 @@
+/**
+ * Model of a replicated data store.
+ * Simultaneous updates to the data are applied in the order of connections
+ * to the multiport, so later connections have priority over earlier ones.
+ * @author Edward A. Lee
+ */
+target C;
+
+federated reactor (
+    N:int(4)
+) {
+    nodes = new[N] Node(N = N);
+    (nodes.publish)+ -> nodes.updates;
+}
+
+reactor Node(
+    N:int(2),
+    update_amount:int(0),
+    query_interval:time(100 msec),
+    update_interval:time(100 msec)
+) {
+    input[N] updates:int;
+    output publish:int;
+    u = new TimedClient(
+        update_amount = update_amount,
+        query_interval = query_interval,
+        update_interval = update_interval
+    );
+    r = new Replica(N = N);
+    u.query -> r.query;
+    u.update -> publish;
+    r.response -> u.reply;
+    updates -> r.updates;
+}
+
+reactor TimedClient(
+    update_amount:int(0),
+    query_interval:time(100 msec),
+    update_interval:time(100 msec)
+) {
+    timer query_trigger(0, query_interval);
+    timer update_trigger(0, update_interval);
+    input reply:int;
+    output query:int;
+    output update:int;
+    reaction(query_trigger) -> query {=
+        SET(query, 1);
+    =}
+    reaction(update_trigger) -> update {=
+        SET(update, self->update_amount);
+    =}
+    reaction(reply) {=
+        info_print("Balance is: %d at time %lld.", 
+            reply->value, get_logical_time() - start_time
+        );
+    =}
+}
+
+reactor Replica(
+    N:int(2)
+) {
+    input[N] updates:int;
+    input query:int;
+    
+    state record:int(0);
+
+    output response:int;
+    
+    reaction(updates) {=
+        for (int i = 0; i < updates_width; i++) {
+            if (updates[i]->is_present) {
+                // Overwrite simultaneous updates on lesser input channels.
+            	self->record = updates[i]->value;
+            }
+        }
+    =}
+    
+    reaction(query) -> response {=
+        SET(response, self->record);
+    =}
+}

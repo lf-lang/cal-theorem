@@ -1,0 +1,29 @@
+/**
+ * Model of a commutative and associative replicated data store.
+ * This version supports only one other remote replica.
+ * @see CAReplicaN.lf
+ * @author Edward A. Lee
+ */
+target C;
+reactor CAReplica {
+    input local_update:int;
+    input remote_update:int;
+    input query:int;
+    
+    state balance:int(0);
+
+    output response:int;
+    
+    reaction(local_update, remote_update) {=
+        if (local_update->is_present) {
+            self->balance += local_update->value;
+        }
+        if (remote_update->is_present) {
+            self->balance += remote_update->value;
+        }
+    =}
+    
+    reaction(query) -> response {=
+        SET(response, self->balance);
+    =}
+}

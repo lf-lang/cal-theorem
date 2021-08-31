@@ -1,0 +1,23 @@
+target C;
+reactor TimedClient(
+    update_amount:int(0),
+    query_interval:time(100 msec),
+    update_interval:time(100 msec)
+) {
+    timer query_trigger(0, query_interval);
+    timer update_trigger(0, update_interval);
+    input reply:int;
+    output query:int;
+    output update:int;
+    reaction(query_trigger) -> query {=
+        SET(query, 1);
+    =}
+    reaction(update_trigger) -> update {=
+        SET(update, self->update_amount);
+    =}
+    reaction(reply) {=
+        info_print("Balance is: %d at time %lld.", 
+            reply->value, get_logical_time() - start_time
+        );
+    =}
+}

@@ -1,0 +1,17 @@
+/**
+ * Model of a replicated data store.
+ * Simultaneous updates to the data are applied in the order of connections
+ * to the multiport, so later connections have priority over earlier ones.
+ * @author Edward A. Lee
+ */
+target C;
+
+import Node from "ReplicatedDataStore.lf";
+
+federated reactor InconsistentDataStore(
+    N:int(4)
+) {
+    nodes = new[N] Node(N = N);
+    (nodes.publish)+ ~> nodes.updates;
+}
+

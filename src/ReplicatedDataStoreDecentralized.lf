@@ -1,0 +1,38 @@
+/**
+ * Model of a replicated data store.
+ * In order for this to work with decentralized coordination, the UserInput
+ * and ReplicaN reactors have to themselves be federates. The UserInput
+ * federate can have a safe-to-process offset of 0 because its network
+ * input can only be the result of its own network output. Hence, it does
+ * not need to wait any amount of physical time to advance its logical
+ * time to the timestamp of the physical action.  Once it has advanced
+ * to this physical time, however, it needs to treat this time advance
+ * as provisional because its network input is still not known.  It will
+ * have to either block until that network input becomes known or realize
+ * an STP offset on reaction 3, hence losing
+ * availability (in exchange for enforcing strong consistency).
+ * 
+ * The ReplicaN reactor, on the other hand, needs an STP offset at least
+ * as large as the network latency.  Upon receiving a query input, it
+ * cannot immediately advance its logical time to the timestamp of that
+ * input because there is a possibility of receiving an updates input
+ * with a lesser timestamp.
+ * 
+ * @author Edward A. Lee
+ */
+target C {
+    coordination: decentralized
+}
+
+import UserInput from "UserInput2.lf";
+import ReplicaN from "ReplicatedDataStore.lf";
+
+federated reactor (
+    N:int(4)
+) {
+    u = new[N] UserInput();
+    r = new[N] ReplicaN(N = N);
+    u.update -> r.query;
+    r.response -> u.current_value;
+    (u.update)+ -> r.updates;
+}

@@ -1,0 +1,54 @@
+/**
+ * Model of ATM machines that maintain a local copy of the bank balance.
+ * @author Edward A. Lee
+ */
+target C;
+
+import UserInput from "UserInput.lf";
+
+federated reactor ConsistencyFirstN(
+    N:int(4)
+) {
+    bank = new[N] ATM(N = N);
+    (bank.publish)+ -> bank.updates;
+}
+
+reactor ATM(
+    N:int(2)
+) {
+    input[N] updates:int;
+    output publish:int;
+    u = new UserInput();
+    r = new CAReplicaN(N = N);
+    u.deposit -> r.query;
+    r.response -> u.balance;
+    updates -> r.updates;
+    reaction(u.deposit) -> publish {=
+        if (u.deposit->value != 0) {
+            SET(publish, u.deposit->value);
+        }
+    =}
+}
+
+reactor CAReplicaN(
+    N:int(2)
+) {
+    input[N] updates:int;
+    input query:int;
+    
+    state balance:int(0);
+
+    output response:int;
+    
+    reaction(updates) {=
+        for (int i = 0; i < updates_width; i++) {
+            if (updates[i]->is_present) {
+            	self->balance += updates[i]->value;
+            }
+        }
+    =}
+    
+    reaction(query) -> response {=
+        SET(response, self->balance);
+    =}
+}

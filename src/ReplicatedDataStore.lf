@@ -1,0 +1,53 @@
+/**
+ * Model of a replicated data store.
+ * Simultaneous updates to the data are applied in the order of connections
+ * to the multiport, so later connections have priority over earlier ones.
+ * @author Edward A. Lee
+ */
+target C;
+
+import UserInput from "UserInput2.lf";
+
+federated reactor ReplicatedDataStore(
+    N:int(4)
+) {
+    nodes = new[N] Node(N = N);
+    (nodes.publish)+ -> nodes.updates;
+}
+
+reactor Node(
+    N:int(2)
+) {
+    input[N] updates:int;
+    output publish:int;
+    u = new UserInput();
+    r = new ReplicaN(N = N);
+    u.update -> r.query;
+    u.update -> publish;
+    r.response -> u.current_value;
+    updates -> r.updates;
+}
+
+reactor ReplicaN(
+    N:int(2)
+) {
+    input[N] updates:int;
+    input query:int;
+    
+    state record:int(0);
+
+    output response:int;
+    
+    reaction(updates) {=
+        for (int i = 0; i < updates_width; i++) {
+            if (updates[i]->is_present) {
+                // Overwrite simultaneous updates on lesser input channels.
+            	self->record = updates[i]->value;
+            }
+        }
+    =}
+    
+    reaction(query) -> response {=
+        SET(response, self->record);
+    =}
+}

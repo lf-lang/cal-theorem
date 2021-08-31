@@ -1,0 +1,31 @@
+target C {
+    coordination: decentralized
+}
+import CAReplica from "CAReplica.lf";
+import TimedClient from "TimedClient.lf";
+
+federated reactor BoundedUnavailability(unavailability_bound:time(30 msec)) {
+    a = new Platform(update_amount = 100, unavailability_bound = unavailability_bound);
+    b = new Platform(update_amount = -20, unavailability_bound = unavailability_bound);
+    b.publish -> a.update after unavailability_bound;
+    a.publish -> b.update after unavailability_bound;
+}
+reactor Platform(
+    update_amount:int(0),
+    unavailability_bound:time(30 msec)
+) {
+    input update:int;
+    output publish:int;
+    c = new TimedClient(update_amount = update_amount);
+    r = new CAReplica();
+    c.query -> r.query after unavailability_bound;
+    (c.update)+ -> r.local_update, publish;
+    r.response -> c.reply;
+    update -> r.remote_update;
+    
+    reaction(update) {=
+        info_print("Received remote update of %d.", update->value);
+    =} STP (0) {=
+        warning_print("Received LATE remote update of %d.", update->value);
+    =}
+}

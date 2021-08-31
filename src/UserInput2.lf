@@ -1,0 +1,35 @@
+target C;
+reactor UserInput {
+    preamble {=
+        void* get(void* r) {
+            int amt;
+            char buf[20];
+            while(1) {
+                char* ln = fgets(buf, 20, stdin);
+                if (ln == NULL) return NULL;
+                int n = sscanf(ln, "%d", &amt);
+                if (n == 1) {
+                	schedule_int(r, 0, amt);
+                } else {
+                    printf("Please enter a number.\n");
+                }
+            }
+        }
+    =}
+
+    input current_value:int;
+    output update:int;
+    
+    physical action r:int;
+    
+    reaction(startup) -> r {=
+        pthread_t id;
+        pthread_create(&id, NULL, &get, r);        
+    =}
+    reaction(r) -> update {=
+        SET(update, r->value);
+    =}
+    reaction(current_value) {=
+        printf("Current value: %d\n", current_value->value);
+    =}
+}

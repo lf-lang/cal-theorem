@@ -1,0 +1,30 @@
+/**
+ * Model of two ATM machines that maintain a local copy of the bank balance.
+ * @see ConsistencyFirstN.lf
+ * @author Edward A. Lee
+ */
+target C;
+
+import CAReplica from "CAReplica.lf";
+import UserInput from "UserInput.lf";
+
+reactor ATM {
+    input update:int;
+    output publish:int;
+    u = new UserInput();
+    r = new CAReplica();
+    (u.deposit)+ -> r.query, r.local_update;
+    r.response -> u.balance;
+    update -> r.remote_update;
+    reaction(u.deposit) -> publish {=
+        if (u.deposit->value != 0) {
+            SET(publish, u.deposit->value);
+        }
+    =}
+}
+federated reactor ConsistencyFirst {
+    a = new ATM();
+    b = new ATM();
+    b.publish -> a.update;
+    a.publish -> b.update;
+}

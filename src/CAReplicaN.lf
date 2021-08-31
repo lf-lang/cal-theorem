@@ -1,0 +1,28 @@
+/**
+ * Model of a commutative and associative replicated data store.
+ * This version supports any number of other remote replicas.
+ * @author Edward A. Lee
+ */
+target C;
+reactor CAReplicaN(
+    N:int(2)
+) {
+    input[N] updates:int;
+    input query:int;
+    
+    state balance:int(0);
+
+    output response:int;
+    
+    reaction(updates) {=
+        for (int i = 0; i < updates_width; i++) {
+            if (updates[i]->is_present) {
+            	self->balance += updates[i]->value;
+            }
+        }
+    =}
+    
+    reaction(query) -> response {=
+        SET(response, self->balance);
+    =}
+}

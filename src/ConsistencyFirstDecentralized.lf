@@ -1,0 +1,85 @@
+/**
+ * Model of two ATM machines that maintain a local copy of the bank balance.
+ * This version uses decentralized coordination.
+ * 
+ * The latency_bound on the TestInput reactors is required to be greater than
+ * or equal to S + N + E, where:
+ * * S is the stp_offset of the replica reactors.
+ * * N is a bound on network latency.
+ * * E is a bound on the clock synchronization error.
+ * 
+ * The stp_offset of the replica reactors is required to be greater than or
+ * equal to N + E.
+ * 
+ * In this test case, every other deposit is simultaneous at the two inputs,
+ * a worst-case scenario.
+ * 
+ * The TestInput reactors do not require a global stp_offset because of the
+ * particular topology of the program. Specifically, they can advance to the
+ * time of a timer event as soon as physical time matches that timer event
+ * because:
+ * 1. Their `balance` input, when present, will always have the same
+ *    timestamp as one of their outputs.
+ * 2. At a logical time t of an output, the first reaction, the one that
+ *    produces the output, will execute immediately, and then the second
+ *    reaction will block until physical time matches or exceeds
+ *    t + latency_bound or the `balance` input becomes known, whichever
+ *    occurs first.
+ * 3. Logical time cannot advance past t (to the time of the next timer
+ *    event) until it has completed all reaction executions at logical time t
+ *    (because of the barrier synchronization within a federate). Hence,
+ *    there is no risk of a message in flight from a previous timer event
+ *    while already processing a later timer event.
+ * 
+ * @see ConsistencyFirstDecentralizedN.lf
+ * @author Edward A. Lee
+ */
+target C {
+    timeout: 5 sec,
+    coordination: decentralized
+}
+
+import CAReplica from "CAReplica.lf";
+
+// Add an stp_offset parameter to the imported reactor.
+reactor CAReplicaDecentralized(
+    stp_offset:time(0)
+) extends CAReplica {}
+
+// Note that TestInput has an stp_offset == 0, the default, meaning
+// that it can advance logical time whenever physical time is at least
+// equal to that logical time.
+reactor TestInput(
+    offset:time(0), 
+    period:time(1 sec),
+    amount:int(42),
+    latency_bound:time(10 msec)  // Sum of network latency and clock sync error bound.
+) {
+    input balance:int;
+    output deposit:int;
+    
+    timer t(offset, period);
+    
+    reaction(t) -> deposit {=
+        SET(deposit, self->amount);
+    =}
+    reaction(balance) {=
+        info_print("Balance: %d", balance->value);
+    =} STP (latency_bound) {=
+        error_print("Balance reported late: %d. Consistency contract violated!", balance->value);
+    =}
+}
+
+federated reactor {
+    u1 = new TestInput(latency_bound = 10 msec);
+    r1 = new CAReplicaDecentralized(stp_offset = 5 msec);
+    u2 = new TestInput(latency_bound = 10 msec);
+    r2 = new CAReplicaDecentralized(stp_offset = 5 msec);
+    (u1.deposit)+ -> r1.query, r1.local_update;
+    r1.response -> u1.balance;
+    u1.deposit -> r2.remote_update;
+
+    (u2.deposit)+ -> r2.query, r2.local_update;
+    r2.response -> u2.balance;
+    u2.deposit -> r1.remote_update;
+}
