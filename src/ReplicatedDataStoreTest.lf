@@ -50,8 +50,8 @@ reactor TimedClient(
         SET(update, self->update_amount);
     =}
     reaction(reply) {=
-        info_print("Balance is: %d at time %lld.", 
-            reply->value, get_logical_time() - start_time
+        lf_print("Balance is: %d at time " PRINTF_TIME, 
+            reply->value, lf_time_logical_elapsed()
         );
     =}
 }

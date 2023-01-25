@@ -64,9 +64,9 @@ reactor TestInput(
         SET(deposit, self->amount);
     =}
     reaction(balance) {=
-        info_print("Balance: %d", balance->value);
+        lf_print("Balance: %d", balance->value);
     =} STP (latency_bound) {=
-        error_print("Balance reported late: %d. Consistency contract violated!", balance->value);
+        lf_print_error("Balance reported late: %d. Consistency contract violated!", balance->value);
     =}
 }
 

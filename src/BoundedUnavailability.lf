@@ -24,8 +24,8 @@ reactor Platform(
     update -> r.remote_update;
     
     reaction(update) {=
-        info_print("Received remote update of %d.", update->value);
+        lf_print("Received remote update of %d.", update->value);
     =} STP (0) {=
-        warning_print("Received LATE remote update of %d.", update->value);
+        lf_print_warning("Received LATE remote update of %d.", update->value);
     =}
 }

@@ -9,9 +9,9 @@ reactor UserInput {
                 if (ln == NULL) return NULL;
                 int n = sscanf(ln, "%d", &amt);
                 if (n == 1) {
-                	schedule_int(r, 0, amt);
+                	lf_schedule_int(r, 0, amt);
                 } else {
-                    printf("Please enter a number.\n");
+                    lf_print("Please enter a number.");
                 }
             }
         }
